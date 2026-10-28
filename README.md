@@ -1,6 +1,7 @@
 ```sh
 # set ANTHROPIC_API_KEY in .env
 bun repl
-const { default: prompt } = await import("./src/prompt.ts")
-await prompt("hello")
+const { default: query } = await import("./src/query.ts")
+const messages = await query("hello")
+await query("What did I say?", messages)
 ```

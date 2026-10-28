@@ -1,9 +1,16 @@
 export type TextContent = { type: "text"; text: string }
 
-export type Message = {
+export type UserMessage = {
   role: "user"
   content: TextContent[]
 }
+
+export type AssistantMessage = {
+  role: "assistant"
+  content: TextContent[]
+}
+
+export type Message = UserMessage | AssistantMessage
 
 export type ApiRequest = {
   model: "claude-opus-5-5"
@@ -11,9 +18,7 @@ export type ApiRequest = {
   messages: Message[]
 }
 
-export type ApiResponse = {
-  content: TextContent[]
-}
+export type ApiResponse = AssistantMessage & { stop_reason: "end_turn" }
 
 type AnthropicApikey = {
   "x-api-key": string
