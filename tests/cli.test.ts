@@ -49,4 +49,16 @@ describe("The command line interface", () => {
       "\n  The user is greeting me.\n\n  Hello! How can I help you today?\n\n",
     )
   })
+
+  test("does not send an empty line to the model", async () => {
+    await type("")
+
+    expect(shown()).toEqual("")
+  })
+
+  test("does not send a blank line to the model", async () => {
+    await type("   ")
+
+    expect(shown()).toEqual("")
+  })
 })
