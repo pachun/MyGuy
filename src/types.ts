@@ -1,22 +1,34 @@
 export type TextContent = { type: "text"; text: string }
 
+export type ThinkingContent = {
+  type: "thinking"
+  thinking: string
+  signature: string
+}
+
+export type Content = TextContent | ThinkingContent
+
 export type UserMessage = {
   role: "user"
-  content: TextContent[]
+  content: Content[]
 }
 
 export type AssistantMessage = {
   role: "assistant"
-  content: TextContent[]
+  content: Content[]
 }
 
 export type Message = UserMessage | AssistantMessage
+
+type ShowThinkingContentSummaries = {
+  thinking: { type: "adaptive"; display: "summarized" }
+}
 
 export type ApiRequest = {
   model: "claude-opus-5-5"
   max_tokens: number
   messages: Message[]
-}
+} & ShowThinkingContentSummaries
 
 export type ApiResponse = AssistantMessage & { stop_reason: "end_turn" }
 

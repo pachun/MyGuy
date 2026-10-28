@@ -26,6 +26,7 @@ const query = async (
     model: "claude-opus-5-5",
     max_tokens: maxTokens,
     messages,
+    thinking: { type: "adaptive", display: "summarized" },
   }
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {

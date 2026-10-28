@@ -5,6 +5,7 @@ import type {
   ApiRequest,
   ApiResponse,
   AssistantMessage,
+  Content,
   Message,
 } from "../../src/types.ts"
 
@@ -14,7 +15,7 @@ const mockQuery = ({
   previousMessages = [],
 }: {
   prompt: string
-  response: string
+  response: Content[]
   previousMessages?: Message[]
 }) => {
   const anthropicApiKey = "anthropic-api-key"
@@ -30,7 +31,7 @@ const mockQuery = ({
 
   const responseMessage: AssistantMessage = {
     role: "assistant",
-    content: [{ type: "text", text: response }],
+    content: response,
   }
 
   const messages: Message[] = [...requestMessages, responseMessage]
@@ -39,6 +40,7 @@ const mockQuery = ({
     model: "claude-opus-5-5",
     max_tokens: maxTokens,
     messages: requestMessages,
+    thinking: { type: "adaptive", display: "summarized" },
   }
 
   const apiResponse: ApiResponse = {
