@@ -1,0 +1,5 @@
+const maxTokensThatDoNotTimeoutNonStreamingHttpRequests = 16000
+
+const maxTokens = maxTokensThatDoNotTimeoutNonStreamingHttpRequests
+
+export default maxTokens
