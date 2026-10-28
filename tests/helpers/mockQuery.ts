@@ -1,21 +1,15 @@
 import nock from "nock"
 import { vi } from "vitest"
 import maxTokens from "../../src/maxTokens.ts"
-import type {
-  ApiRequest,
-  ApiResponse,
-  AssistantMessage,
-  Content,
-  Message,
-} from "../../src/types.ts"
+import type { ApiRequest, ApiResponse, Message } from "../../src/types.ts"
 
 const mockQuery = ({
   prompt,
-  response,
+  apiResponse,
   previousMessages = [],
 }: {
   prompt: string
-  response: Content[]
+  apiResponse: ApiResponse
   previousMessages?: Message[]
 }) => {
   const anthropicApiKey = "anthropic-api-key"
@@ -29,10 +23,8 @@ const mockQuery = ({
     },
   ]
 
-  const responseMessage: AssistantMessage = {
-    role: "assistant",
-    content: response,
-  }
+  const { role, content } = apiResponse
+  const responseMessage = { role, content }
 
   const messages: Message[] = [...requestMessages, responseMessage]
 
@@ -42,11 +34,6 @@ const mockQuery = ({
     messages: requestMessages,
     thinking: { type: "adaptive", display: "summarized" },
     cache_control: { type: "ephemeral" },
-  }
-
-  const apiResponse: ApiResponse = {
-    ...responseMessage,
-    stop_reason: "end_turn",
   }
 
   nock("https://api.anthropic.com")

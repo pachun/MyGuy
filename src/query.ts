@@ -5,12 +5,13 @@ import type {
   ApiResponse,
   AssistantMessage,
   Message,
+  Usage,
 } from "./types.ts"
 
 const query = async (
   prompt: string,
   previousMessages: Message[] = [],
-): Promise<Message[]> => {
+): Promise<{ messages: Message[]; usage: Usage }> => {
   const apiRequestHeaders: ApiRequestHeaders = {
     "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
     "anthropic-version": "2023-06-01",
@@ -37,9 +38,9 @@ const query = async (
   })
 
   const apiResponse = (await response.json()) as ApiResponse
-  const { role, content } = apiResponse
+  const { role, content, usage } = apiResponse
   const assistantMessage = { role, content }
-  return [...messages, assistantMessage]
+  return { messages: [...messages, assistantMessage], usage }
 }
 
 export default query

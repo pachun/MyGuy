@@ -3,11 +3,11 @@ import { type MarkedExtension, marked } from "marked"
 import { markedTerminal } from "marked-terminal"
 import wrapAnsi from "wrap-ansi"
 import query from "./query.ts"
-import readLine from "./readLine.ts"
-import type { Content, Message } from "./types.ts"
+import readLine, { typedLine } from "./readLine.ts"
+import type { Content, Message, Usage } from "./types.ts"
 
 const indent = "  "
-const width = (process.stdout.columns ?? 80) - indent.length
+const width = (): number => (process.stdout.columns ?? 80) - indent.length
 
 const unstyled = (code: string): string => code
 type HighlightOptions = Parameters<typeof markedTerminal>[1]
@@ -26,13 +26,15 @@ marked.use({
   },
 })
 
-const render = async (content: Content): Promise<string> =>
+const render = (content: Content): string =>
   content.type === "thinking"
     ? styleText(
         "dim",
-        stripVTControlCharacters(await marked.parse(content.thinking)),
+        stripVTControlCharacters(
+          marked.parse(content.thinking, { async: false }),
+        ),
       )
-    : marked.parse(content.text)
+    : marked.parse(content.text, { async: false })
 
 const leadingBullet = /^\s*(?:(?:[*+-]|\d+\.)\s+)?/
 
@@ -43,10 +45,10 @@ const wrapped = (rendered: string): string =>
       const hanging = " ".repeat(
         stripVTControlCharacters(line).match(leadingBullet)?.at(0)?.length ?? 0,
       )
-      return wrapAnsi(line, width - hanging.length, { trim: false })
+      return wrapAnsi(line, width() - hanging.length, { trim: false })
         .split("\n")
         .map((piece, index) =>
-          index === 0 ? piece : `${hanging}${piece.trimStart()}`,
+          index === 0 ? piece.trimEnd() : `${hanging}${piece.trim()}`,
         )
     })
     .join("\n")
@@ -58,6 +60,45 @@ const indented = (rendered: string): string =>
     .join("\n")
 
 const promptLabel = styleText(["bold", "cyan"], ">")
+
+const cached = ({
+  cache_read_input_tokens: read,
+  cache_creation_input_tokens: written,
+}: Usage): string =>
+  read > 0 && written > 0
+    ? `  ${read} cached +${written}`
+    : read > 0
+      ? `  ${read} cached`
+      : written > 0
+        ? `  +${written} cached`
+        : ""
+
+const totalInput = (usage: Usage): number =>
+  usage.input_tokens +
+  usage.cache_read_input_tokens +
+  usage.cache_creation_input_tokens
+
+const tokensUsed = (usage: Usage): string =>
+  `${indent}${styleText(
+    "dim",
+    `↑ ${totalInput(usage)}  ↓ ${usage.output_tokens}${cached(usage)}`,
+  )}\n\n`
+
+type Turn = { prompt: string; content: Content[]; usage: Usage }
+
+const shownResponse = ({ content, usage }: Turn): string =>
+  `\n${indented(wrapped(content.map(render).join("")))}${tokensUsed(usage)}`
+
+const shownTurn = (turn: Turn): string =>
+  `${typedLine(promptLabel, turn.prompt)}\n${shownResponse(turn)}`
+
+const clearScreenAndScrollback = "\x1b[2J\x1b[3J\x1b[H"
+
+const redrawTranscript = (transcript: Turn[]) => (): void => {
+  process.stdout.write(
+    `${clearScreenAndScrollback}\n${transcript.map(shownTurn).join("")}`,
+  )
+}
 
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const spinnerFrameMilliseconds = 80
@@ -89,22 +130,33 @@ const spinWhile = async <T>(pending: Promise<T>): Promise<T> => {
 }
 
 const respondTo = async (
-  line: string,
+  prompt: string,
   messages: Message[],
-): Promise<Message[]> => {
-  const nextMessages = await spinWhile(query(line, messages))
+): Promise<{ messages: Message[]; turn: Turn }> => {
+  const { messages: nextMessages, usage } = await spinWhile(
+    query(prompt, messages),
+  )
   const content = nextMessages.at(-1)?.content ?? []
-  const rendered = await Promise.all(content.map(render))
-  process.stdout.write(`\n${indented(wrapped(rendered.join("")))}`)
-  return nextMessages
+  const turn = { prompt, content, usage }
+  process.stdout.write(shownResponse(turn))
+  return { messages: nextMessages, turn }
 }
 
-const cli = async (messages: Message[] = []): Promise<void> => {
+const cli = async (
+  messages: Message[] = [],
+  transcript: Turn[] = [],
+): Promise<void> => {
+  const redraw = redrawTranscript(transcript)
+  process.stdout.on("resize", redraw)
   const line = await readLine(promptLabel)
-  if (line !== null) {
-    const nextMessages =
-      line.trim() === "" ? messages : await respondTo(line, messages)
-    await cli(nextMessages)
+  process.stdout.off("resize", redraw)
+  if (line === null) {
+    return
+  } else if (line.trim() === "") {
+    await cli(messages, transcript)
+  } else {
+    const { messages: nextMessages, turn } = await respondTo(line, messages)
+    await cli(nextMessages, [...transcript, turn])
   }
 }
 

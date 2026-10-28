@@ -35,7 +35,17 @@ export type ApiRequest = {
 } & ShowThinkingSummaries &
   CacheInputTokens
 
-export type ApiResponse = AssistantMessage & { stop_reason: "end_turn" }
+export type Usage = {
+  input_tokens: number
+  output_tokens: number
+  cache_read_input_tokens: number
+  cache_creation_input_tokens: number
+}
+
+export type ApiResponse = {
+  stop_reason: "end_turn"
+  usage: Usage
+} & AssistantMessage
 
 type AnthropicApikey = {
   "x-api-key": string

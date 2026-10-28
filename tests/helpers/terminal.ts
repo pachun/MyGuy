@@ -1,6 +1,6 @@
 import { EventEmitter, once } from "node:events"
 import { stripVTControlCharacters } from "node:util"
-import { vi } from "vitest"
+import { onTestFinished, vi } from "vitest"
 
 const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true)
 
@@ -24,3 +24,15 @@ export const type = (line: string) => {
 }
 
 export const exit = () => terminal.emit("line", null)
+
+export const resizeTo = (columns: number) => {
+  Object.defineProperty(process.stdout, "columns", {
+    value: columns,
+    configurable: true,
+  })
+  onTestFinished(() => {
+    Reflect.deleteProperty(process.stdout, "columns")
+  })
+  stdout.mockClear()
+  process.stdout.emit("resize")
+}
