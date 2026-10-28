@@ -20,15 +20,20 @@ export type AssistantMessage = {
 
 export type Message = UserMessage | AssistantMessage
 
-type ShowThinkingContentSummaries = {
+type ShowThinkingSummaries = {
   thinking: { type: "adaptive"; display: "summarized" }
+}
+
+type CacheInputTokens = {
+  cache_control: { type: "ephemeral" }
 }
 
 export type ApiRequest = {
   model: "claude-opus-5-5"
   max_tokens: number
   messages: Message[]
-} & ShowThinkingContentSummaries
+} & ShowThinkingSummaries &
+  CacheInputTokens
 
 export type ApiResponse = AssistantMessage & { stop_reason: "end_turn" }
 

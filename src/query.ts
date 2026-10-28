@@ -27,6 +27,7 @@ const query = async (
     max_tokens: maxTokens,
     messages,
     thinking: { type: "adaptive", display: "summarized" },
+    cache_control: { type: "ephemeral" },
   }
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -37,7 +38,7 @@ const query = async (
 
   const apiResponse = (await response.json()) as ApiResponse
   const { role, content } = apiResponse
-  const assistantMessage: AssistantMessage = { role, content }
+  const assistantMessage = { role, content }
   return [...messages, assistantMessage]
 }
 

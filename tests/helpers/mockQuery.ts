@@ -41,6 +41,7 @@ const mockQuery = ({
     max_tokens: maxTokens,
     messages: requestMessages,
     thinking: { type: "adaptive", display: "summarized" },
+    cache_control: { type: "ephemeral" },
   }
 
   const apiResponse: ApiResponse = {
