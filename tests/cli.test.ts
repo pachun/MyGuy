@@ -170,10 +170,10 @@ describe("The command line interface", () => {
     })
     await type("hello")
 
-    resizeTo(30)
+    resizeTo(28)
 
     expect(shown()).toEqual(
-      "\n> hello\n\n  Hello! How can I help you\n  today?\n\n  ↑ 10  ↓ 13\n\n",
+      "\n> hello\n\n  Hello! How can I help\n  you today?\n\n  ↑ 10  ↓ 13\n\n",
     )
   })
 

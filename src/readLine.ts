@@ -8,6 +8,7 @@ const escapeKey = "\x1b"
 
 const labelWidth = "> ".length
 const continuationIndent = " ".repeat(labelWidth)
+const rightMargin = "  "
 const startOfLine = "\r"
 const clearBelow = "\x1b[J"
 const cursorUp = (rows: number): string => (rows > 0 ? `\x1b[${rows}A` : "")
@@ -15,7 +16,9 @@ const cursorToColumn = (column: number): string => `\x1b[${column}G`
 
 const typedRows = (buffer: string): string[] => {
   const columns = process.stdout.columns ?? 80
-  return wrapAnsi(buffer, columns - labelWidth, { trim: false })
+  return wrapAnsi(buffer, columns - labelWidth - rightMargin.length, {
+    trim: false,
+  })
     .split("\n")
     .map((row, index) => (index === 0 ? row : row.trimStart()))
 }

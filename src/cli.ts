@@ -7,7 +7,9 @@ import readLine, { typedLine } from "./readLine.ts"
 import type { Content, Message, Usage } from "./types.ts"
 
 const indent = "  "
-const width = (): number => (process.stdout.columns ?? 80) - indent.length
+const rightMargin = "  "
+const width = (): number =>
+  (process.stdout.columns ?? 80) - indent.length - rightMargin.length
 
 const unstyled = (code: string): string => code
 type HighlightOptions = Parameters<typeof markedTerminal>[1]
