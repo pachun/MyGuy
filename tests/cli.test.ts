@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, onTestFinished, test } from "vitest"
-import cli from "../src/cli.ts"
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest"
+import cli from "#src/cli.ts"
 import apiResponse from "./helpers/apiResponse.ts"
 import {
   assistantMessage,
   textContent,
   thinkingContent,
+  toolResultContent,
+  toolUseContent,
+  userMessage,
 } from "./helpers/messages.ts"
 import mockQuery from "./helpers/mockQuery.ts"
 import { exit, resizeTo, shown, type } from "./helpers/terminal.ts"
@@ -18,9 +21,9 @@ describe("The command line interface", () => {
     })
   })
 
-  test("shows the model's responses", async () => {
+  it("shows the model's responses", async () => {
     const previousMessages = mockQuery({
-      prompt: "hello",
+      messages: [userMessage([textContent("hello")])],
       apiResponse: apiResponse({
         ...assistantMessage([textContent("Hello! How can I help you today?")]),
         usage: {
@@ -39,7 +42,10 @@ describe("The command line interface", () => {
     )
 
     mockQuery({
-      prompt: "What did I say?",
+      messages: [
+        ...previousMessages,
+        userMessage([textContent("What did I say?")]),
+      ],
       apiResponse: apiResponse({
         ...assistantMessage([textContent("You said hello.")]),
         usage: {
@@ -49,7 +55,6 @@ describe("The command line interface", () => {
           cache_creation_input_tokens: 0,
         },
       }),
-      previousMessages,
     })
 
     await type("What did I say?")
@@ -57,9 +62,9 @@ describe("The command line interface", () => {
     expect(shown()).toEqual("\n  You said hello.\n\n  ↑ 30  ↓ 20\n\n")
   })
 
-  test("shows the model's thinking summary before its response", async () => {
+  it("shows the model's thinking summary before its response", async () => {
     mockQuery({
-      prompt: "hello",
+      messages: [userMessage([textContent("hello")])],
       apiResponse: apiResponse({
         ...assistantMessage([
           thinkingContent("The user is greeting me.\n\n"),
@@ -75,9 +80,9 @@ describe("The command line interface", () => {
     )
   })
 
-  test("shows the tokens used below the model's response", async () => {
+  it("shows the tokens used below the model's response", async () => {
     mockQuery({
-      prompt: "hello",
+      messages: [userMessage([textContent("hello")])],
       apiResponse: apiResponse({
         ...assistantMessage([textContent("Hello! How can I help you today?")]),
         usage: {
@@ -96,9 +101,9 @@ describe("The command line interface", () => {
     )
   })
 
-  test("shows tokens written to and read from the cache", async () => {
+  it("shows tokens written to and read from the cache", async () => {
     const afterWrite = mockQuery({
-      prompt: "Tell me a long story.",
+      messages: [userMessage([textContent("Tell me a long story.")])],
       apiResponse: apiResponse({
         ...assistantMessage([textContent("Once upon a time...")]),
         usage: {
@@ -117,7 +122,7 @@ describe("The command line interface", () => {
     )
 
     const afterRead = mockQuery({
-      prompt: "Shorter.",
+      messages: [...afterWrite, userMessage([textContent("Shorter.")])],
       apiResponse: apiResponse({
         ...assistantMessage([textContent("The end.")]),
         usage: {
@@ -127,7 +132,6 @@ describe("The command line interface", () => {
           cache_creation_input_tokens: 0,
         },
       }),
-      previousMessages: afterWrite,
     })
 
     await type("Shorter.")
@@ -135,7 +139,7 @@ describe("The command line interface", () => {
     expect(shown()).toEqual("\n  The end.\n\n  ↑ 1428  ↓ 80  1425 cached\n\n")
 
     mockQuery({
-      prompt: "Again.",
+      messages: [...afterRead, userMessage([textContent("Again.")])],
       apiResponse: apiResponse({
         ...assistantMessage([textContent("The end, again.")]),
         usage: {
@@ -145,7 +149,6 @@ describe("The command line interface", () => {
           cache_creation_input_tokens: 154,
         },
       }),
-      previousMessages: afterRead,
     })
 
     await type("Again.")
@@ -155,9 +158,42 @@ describe("The command line interface", () => {
     )
   })
 
-  test("rewraps the conversation when the terminal is resized", async () => {
+  it("shows the tools the model calls before its response", async () => {
+    const toolUse = toolUseContent({
+      name: "shell",
+      input: { command: "echo hi" },
+    })
+    const afterToolUse = mockQuery({
+      messages: [userMessage([textContent("Run echo hi for me.")])],
+      apiResponse: apiResponse({
+        ...assistantMessage([toolUse]),
+        stop_reason: "tool_use",
+      }),
+    })
     mockQuery({
-      prompt: "hello",
+      messages: [
+        ...afterToolUse,
+        userMessage([
+          toolResultContent(toolUse, {
+            content: '{"stdout":"hi\\n","stderr":""}',
+          }),
+        ]),
+      ],
+      apiResponse: apiResponse({
+        ...assistantMessage([textContent("It printed hi.")]),
+      }),
+    })
+
+    await type("Run echo hi for me.")
+
+    expect(shown()).toEqual(
+      '\n  shell {"command":"echo hi"}\n\n  It printed hi.\n\n  ↑ 0  ↓ 0\n\n',
+    )
+  })
+
+  it("rewraps the conversation when the terminal is resized", async () => {
+    mockQuery({
+      messages: [userMessage([textContent("hello")])],
       apiResponse: apiResponse({
         ...assistantMessage([textContent("Hello! How can I help you today?")]),
         usage: {
@@ -177,13 +213,13 @@ describe("The command line interface", () => {
     )
   })
 
-  test("does not send an empty line to the model", async () => {
+  it("does not send an empty line to the model", async () => {
     await type("")
 
     expect(shown()).toEqual("")
   })
 
-  test("does not send a blank line to the model", async () => {
+  it("does not send a blank line to the model", async () => {
     await type("   ")
 
     expect(shown()).toEqual("")

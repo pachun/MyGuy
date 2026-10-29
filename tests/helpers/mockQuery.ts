@@ -1,37 +1,30 @@
 import nock from "nock"
 import { vi } from "vitest"
-import maxTokens from "../../src/maxTokens.ts"
-import type { ApiRequest, ApiResponse, Message } from "../../src/types.ts"
+import tools from "#src/tools/index.ts"
+import type { ApiRequest } from "#src/types/ApiRequest.ts"
+import type { ApiResponse } from "#src/types/ApiResponse.ts"
+import type { Message } from "#src/types/Message.ts"
 
 const mockQuery = ({
-  prompt,
+  messages,
   apiResponse,
-  previousMessages = [],
 }: {
-  prompt: string
+  messages: Message[]
   apiResponse: ApiResponse
-  previousMessages?: Message[]
 }) => {
   const anthropicApiKey = "anthropic-api-key"
   vi.stubEnv("ANTHROPIC_API_KEY", anthropicApiKey)
 
-  const requestMessages: Message[] = [
-    ...previousMessages,
-    {
-      role: "user",
-      content: [{ type: "text", text: prompt }],
-    },
-  ]
-
   const { role, content } = apiResponse
   const responseMessage = { role, content }
 
-  const messages: Message[] = [...requestMessages, responseMessage]
+  const responseMessages: Message[] = [...messages, responseMessage]
 
   const expectedApiRequest: ApiRequest = {
     model: "claude-opus-5-5",
-    max_tokens: maxTokens,
-    messages: requestMessages,
+    max_tokens: 16000,
+    messages,
+    tools: tools.map(tool => tool.definition),
     thinking: { type: "adaptive", display: "summarized" },
     cache_control: { type: "ephemeral" },
   }
@@ -43,7 +36,7 @@ const mockQuery = ({
     .post("/v1/messages", expectedApiRequest)
     .reply(200, apiResponse)
 
-  return messages
+  return responseMessages
 }
 
 export default mockQuery

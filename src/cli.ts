@@ -4,7 +4,9 @@ import { markedTerminal } from "marked-terminal"
 import wrapAnsi from "wrap-ansi"
 import query from "./query.ts"
 import readLine, { typedLine } from "./readLine.ts"
-import type { Content, Message, Usage } from "./types.ts"
+import type { Content } from "./types/Content.ts"
+import type { Message } from "./types/Message.ts"
+import type { Usage } from "./types/Usage.ts"
 
 const indent = "  "
 const rightMargin = "  "
@@ -36,7 +38,11 @@ const render = (content: Content): string =>
           marked.parse(content.thinking, { async: false }),
         ),
       )
-    : marked.parse(content.text, { async: false })
+    : content.type === "text"
+      ? marked.parse(content.text, { async: false })
+      : content.type === "tool_use"
+        ? `${styleText("dim", `${content.name} ${JSON.stringify(content.input)}`)}\n\n`
+        : ""
 
 const leadingBullet = /^\s*(?:(?:[*+-]|\d+\.)\s+)?/
 
@@ -136,9 +142,14 @@ const respondTo = async (
   messages: Message[],
 ): Promise<{ messages: Message[]; turn: Turn }> => {
   const { messages: nextMessages, usage } = await spinWhile(
-    query(prompt, messages),
+    query([
+      ...messages,
+      { role: "user", content: [{ type: "text", text: prompt }] },
+    ]),
   )
-  const content = nextMessages.at(-1)?.content ?? []
+  const content = nextMessages
+    .slice(messages.length + 1)
+    .flatMap(message => message.content)
   const turn = { prompt, content, usage }
   process.stdout.write(shownResponse(turn))
   return { messages: nextMessages, turn }

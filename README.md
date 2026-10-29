@@ -1,14 +1,14 @@
+## Test, Typecheck & Lint
+
 ```sh
-# set ANTHROPIC_API_KEY in .env
-bun run start
+bun install
+bun run checks
 ```
 
-or
+## Run
 
 ```sh
 # set ANTHROPIC_API_KEY in .env
-bun repl
-const { default: query } = await import("./src/query.ts")
-const messages = await query("hello")
-await query("What did I say?", messages)
+bun install
+bun run start
 ```

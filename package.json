@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
   "scripts": {
     "start": "bun src/main.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check --error-on-warnings .",
     "format": "biome check --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "checks": "bun run lint && bun run typecheck && bun run test"
   },
   "dependencies": {
     "marked": "^18.1.2",

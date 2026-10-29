@@ -1,4 +1,4 @@
-import type { ApiResponse } from "../../src/types.ts"
+import type { ApiResponse } from "#src/types/ApiResponse.ts"
 
 const apiResponse = (apiResponse: Partial<ApiResponse>): ApiResponse => {
   const { content, usage, stop_reason } = apiResponse
