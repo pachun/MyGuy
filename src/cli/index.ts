@@ -2,11 +2,12 @@ import { stripVTControlCharacters, styleText } from "node:util"
 import { type MarkedExtension, marked } from "marked"
 import { markedTerminal } from "marked-terminal"
 import wrapAnsi from "wrap-ansi"
-import query from "./query.ts"
-import readLine, { typedLine } from "./readLine.ts"
-import type { Content } from "./types/Content.ts"
-import type { Message } from "./types/Message.ts"
-import type { Usage } from "./types/Usage.ts"
+import readLine, { typedLine } from "#src/cli/readLine.ts"
+import { textContent, userMessage } from "#src/factories/index.ts"
+import query from "#src/query.ts"
+import type { Content } from "#src/types/Content.ts"
+import type { Message } from "#src/types/Message.ts"
+import type { Usage } from "#src/types/Usage.ts"
 
 const indent = "  "
 const rightMargin = "  "
@@ -137,22 +138,28 @@ const spinWhile = async <T>(pending: Promise<T>): Promise<T> => {
   }
 }
 
+const shownError = (error: unknown): string =>
+  `\n${indent}${styleText("red", error instanceof Error ? error.message : String(error))}\n\n`
+
 const respondTo = async (
   prompt: string,
   messages: Message[],
-): Promise<{ messages: Message[]; turn: Turn }> => {
-  const { messages: nextMessages, usage } = await spinWhile(
-    query([
-      ...messages,
-      { role: "user", content: [{ type: "text", text: prompt }] },
-    ]),
-  )
-  const content = nextMessages
-    .slice(messages.length + 1)
-    .flatMap(message => message.content)
-  const turn = { prompt, content, usage }
-  process.stdout.write(shownResponse(turn))
-  return { messages: nextMessages, turn }
+  transcript: Turn[],
+): Promise<{ messages: Message[]; transcript: Turn[] }> => {
+  try {
+    const { messages: nextMessages, usage } = await spinWhile(
+      query([...messages, userMessage([textContent(prompt)])]),
+    )
+    const content = nextMessages
+      .slice(messages.length + 1)
+      .flatMap(message => message.content)
+    const turn = { prompt, content, usage }
+    process.stdout.write(shownResponse(turn))
+    return { messages: nextMessages, transcript: [...transcript, turn] }
+  } catch (error) {
+    process.stdout.write(shownError(error))
+    return { messages, transcript }
+  }
 }
 
 const cli = async (
@@ -168,8 +175,8 @@ const cli = async (
   } else if (line.trim() === "") {
     await cli(messages, transcript)
   } else {
-    const { messages: nextMessages, turn } = await respondTo(line, messages)
-    await cli(nextMessages, [...transcript, turn])
+    const next = await respondTo(line, messages, transcript)
+    await cli(next.messages, next.transcript)
   }
 }
 

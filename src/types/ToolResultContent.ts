@@ -1,4 +1,4 @@
-import type { ToolUseId } from "./ToolUseId.ts"
+import type { ToolUseId } from "#src/types/ToolUseId.ts"
 
 export type ToolResultContent = {
   type: "tool_result"

@@ -1,16 +1,17 @@
 import { beforeEach, describe, expect, it, onTestFinished } from "vitest"
-import cli from "#src/cli.ts"
-import apiResponse from "./helpers/apiResponse.ts"
+import cli from "#src/cli/index.ts"
 import {
+  apiResponse,
   assistantMessage,
   textContent,
   thinkingContent,
   toolResultContent,
   toolUseContent,
   userMessage,
-} from "./helpers/messages.ts"
-import mockQuery from "./helpers/mockQuery.ts"
-import { exit, resizeTo, shown, type } from "./helpers/terminal.ts"
+} from "#tests/factories/index.ts"
+import mockQuery from "#tests/helpers/mockQuery.ts"
+import mockQueryError from "#tests/helpers/mockQueryError.ts"
+import { exit, resizeTo, shown, type } from "#tests/helpers/terminal.ts"
 
 describe("The command line interface", () => {
   beforeEach(() => {
@@ -188,6 +189,41 @@ describe("The command line interface", () => {
 
     expect(shown()).toEqual(
       '\n  shell {"command":"echo hi"}\n\n  It printed hi.\n\n  ↑ 0  ↓ 0\n\n',
+    )
+  })
+
+  it("shows why the api refused a request and keeps the conversation", async () => {
+    mockQueryError({
+      messages: [userMessage([textContent("hello")])],
+      apiError: {
+        status: 401,
+        body: {
+          type: "error",
+          error: {
+            type: "authentication_error",
+            message: "x-api-key header is required",
+          },
+        },
+      },
+    })
+
+    await type("hello")
+
+    expect(shown()).toEqual(
+      "\n  authentication_error: x-api-key header is required\n\n",
+    )
+
+    mockQuery({
+      messages: [userMessage([textContent("hello again")])],
+      apiResponse: apiResponse({
+        ...assistantMessage([textContent("Hello! How can I help you today?")]),
+      }),
+    })
+
+    await type("hello again")
+
+    expect(shown()).toEqual(
+      "\n  Hello! How can I help you today?\n\n  ↑ 0  ↓ 0\n\n",
     )
   })
 

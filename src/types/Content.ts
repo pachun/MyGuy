@@ -1,7 +1,7 @@
-import type { TextContent } from "./TextContent.ts"
-import type { ThinkingContent } from "./ThinkingContent.ts"
-import type { ToolResultContent } from "./ToolResultContent.ts"
-import type { ToolUseContent } from "./ToolUseContent.ts"
+import type { TextContent } from "#src/types/TextContent.ts"
+import type { ThinkingContent } from "#src/types/ThinkingContent.ts"
+import type { ToolResultContent } from "#src/types/ToolResultContent.ts"
+import type { ToolUseContent } from "#src/types/ToolUseContent.ts"
 
 export type Content =
   | TextContent

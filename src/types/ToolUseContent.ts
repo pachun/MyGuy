@@ -1,7 +1,7 @@
 import type tools from "#src/tools/index.ts"
-import type { Json } from "./Json.ts"
-import type { InputOf, Property, Tool } from "./Tool.ts"
-import type { ToolUseId } from "./ToolUseId.ts"
+import type { Json } from "#src/types/Json.ts"
+import type { InputOf, Property, Tool } from "#src/types/Tool.ts"
+import type { ToolUseId } from "#src/types/ToolUseId.ts"
 
 type ToolUse<Defined> = Defined extends {
   definition: Tool<

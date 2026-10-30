@@ -1,3 +1,3 @@
-import setupNock from "./helpers/setupNock.ts"
+import setupNock from "#tests/helpers/setupNock.ts"
 
 setupNock()

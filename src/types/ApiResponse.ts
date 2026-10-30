@@ -1,5 +1,5 @@
-import type { AssistantMessage } from "./AssistantMessage.ts"
-import type { Usage } from "./Usage.ts"
+import type { AssistantMessage } from "#src/types/AssistantMessage.ts"
+import type { Usage } from "#src/types/Usage.ts"
 
 type StopReason = "end_turn" | "tool_use"
 

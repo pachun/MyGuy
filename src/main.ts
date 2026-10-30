@@ -1,4 +1,4 @@
-import cli from "./cli.ts"
+import cli from "#src/cli/index.ts"
 
 process.stdout.write("\n")
 await cli()

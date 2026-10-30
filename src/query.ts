@@ -1,9 +1,11 @@
-import tools from "./tools/index.ts"
-import type { ApiRequest } from "./types/ApiRequest.ts"
-import type { ApiRequestHeaders } from "./types/ApiRequestHeaders.ts"
-import type { ApiResponse } from "./types/ApiResponse.ts"
-import type { Message } from "./types/Message.ts"
-import type { Usage } from "./types/Usage.ts"
+import { toolResultContent, userMessage } from "#src/factories/index.ts"
+import tools from "#src/tools/index.ts"
+import type { ApiErrorBody } from "#src/types/ApiError.ts"
+import type { ApiRequest } from "#src/types/ApiRequest.ts"
+import type { ApiRequestHeaders } from "#src/types/ApiRequestHeaders.ts"
+import type { ApiResponse } from "#src/types/ApiResponse.ts"
+import type { Message } from "#src/types/Message.ts"
+import type { Usage } from "#src/types/Usage.ts"
 
 const addUsage = (u1: Usage, u2: Usage): Usage => {
   return {
@@ -40,15 +42,19 @@ const query = async (
     body: JSON.stringify(apiRequestBody),
   })
 
+  if (!response.ok) {
+    const body = (await response.json()) as ApiErrorBody
+    throw new Error(`${body.error.type}: ${body.error.message}`)
+  }
+
   const apiResponse = (await response.json()) as ApiResponse
   const { role, content, usage, stop_reason } = apiResponse
   const assistantMessage = { role, content }
   const newMessages = [...messages, assistantMessage]
 
   if (stop_reason === "tool_use") {
-    const toolResults = {
-      role: "user" as const,
-      content: await Promise.all(
+    const toolResults = userMessage(
+      await Promise.all(
         content
           .filter(content => content.type === "tool_use")
           .map(async content => {
@@ -57,33 +63,27 @@ const query = async (
             )
             if (tool) {
               try {
-                return {
-                  type: "tool_result" as const,
-                  tool_use_id: content.id,
+                return toolResultContent(content, {
                   content: await tool.run(content.input),
-                }
+                })
               } catch (exception) {
-                return {
-                  type: "tool_result" as const,
-                  tool_use_id: content.id,
+                return toolResultContent(content, {
                   content:
                     exception instanceof Error
                       ? exception.message
                       : String(exception),
                   is_error: true,
-                }
+                })
               }
             } else {
-              return {
-                type: "tool_result" as const,
-                tool_use_id: content.id,
+              return toolResultContent(content, {
                 content: `${content.name} is not a tool.`,
                 is_error: true,
-              }
+              })
             }
           }),
       ),
-    }
+    )
     const innerQuery = await query([...newMessages, toolResults])
     return {
       messages: innerQuery.messages,

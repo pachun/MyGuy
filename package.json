@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "imports": {
-    "#src/*": "./src/*"
+    "#src/*": "./src/*",
+    "#tests/*": "./tests/*"
   },
   "scripts": {
     "start": "bun src/main.ts",

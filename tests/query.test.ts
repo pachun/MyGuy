@@ -4,8 +4,8 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import query from "#src/query.ts"
 import type { ToolUseContent } from "#src/types/ToolUseContent.ts"
-import apiResponse from "./helpers/apiResponse.ts"
 import {
+  apiResponse,
   assistantMessage,
   textContent,
   thinkingContent,
@@ -13,8 +13,9 @@ import {
   toolUseContent,
   toolUseId,
   userMessage,
-} from "./helpers/messages.ts"
-import mockQuery from "./helpers/mockQuery.ts"
+} from "#tests/factories/index.ts"
+import mockQuery from "#tests/helpers/mockQuery.ts"
+import mockQueryError from "./helpers/mockQueryError.ts"
 
 const createFileForTest = async (
   name: string,
@@ -176,7 +177,9 @@ describe("query()", () => {
   describe("asking the harness to do something it cannot", () => {
     describe("when the harness's tool does not exist", () => {
       it("tells the model", async () => {
-        const promptMessage = userMessage([textContent("Make my harness run.")])
+        const promptMessage = userMessage([
+          textContent("Make my harness run a 5k."),
+        ])
         const unavailableToolUse: ToolUseContent = {
           type: "tool_use",
           id: toolUseId("123"),
@@ -266,6 +269,29 @@ describe("query()", () => {
           answerMessage,
         ])
       })
+    })
+  })
+
+  describe("when the api request fails", () => {
+    it("throws", async () => {
+      const messages = [userMessage([textContent("hello")])]
+      mockQueryError({
+        messages,
+        apiError: {
+          status: 401,
+          body: {
+            type: "error",
+            error: {
+              type: "authentication_error",
+              message: "x-api-key header is required",
+            },
+          },
+        },
+      })
+
+      await expect(query(messages)).rejects.toThrow(
+        "authentication_error: x-api-key header is required",
+      )
     })
   })
 })

@@ -1,5 +1,5 @@
-import type { Message } from "./Message.ts"
-import type { Tool } from "./Tool.ts"
+import type { Message } from "#src/types/Message.ts"
+import type { Tool } from "#src/types/Tool.ts"
 
 type ShowThinkingSummaries = {
   thinking: { type: "adaptive"; display: "summarized" }
