@@ -3,6 +3,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import query from "#src/query.ts"
+import type { ApiErrorBody } from "#src/types/ApiError.ts"
+import type { ApiResponse } from "#src/types/ApiResponse.ts"
 import type { ToolUseContent } from "#src/types/ToolUseContent.ts"
 import {
   apiResponse,
@@ -269,6 +271,30 @@ describe("query()", () => {
           answerMessage,
         ])
       })
+    })
+  })
+
+  describe("when the api replies with something that is not a message", () => {
+    it("rejects naming what was wrong with the reply", async () => {
+      const messages = [userMessage([textContent("hello")])]
+      const replyWithoutContent = { type: "message" } as unknown as ApiResponse
+      mockQuery({ messages, apiResponse: replyWithoutContent })
+
+      await expect(query(messages)).rejects.toThrow(
+        "content: Invalid input: expected array, received undefined",
+      )
+    })
+  })
+
+  describe("when something in front of the api fails", () => {
+    it("rejects with the status and whatever came back", async () => {
+      const messages = [userMessage([textContent("hello")])]
+      const gatewayPage = "<html>Bad gateway</html>" as unknown as ApiErrorBody
+      mockQueryError({ messages, apiError: { status: 502, body: gatewayPage } })
+
+      await expect(query(messages)).rejects.toThrow(
+        "HTTP 502: <html>Bad gateway</html>",
+      )
     })
   })
 

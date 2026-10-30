@@ -1,13 +1,21 @@
 import { toolResultContent, userMessage } from "#src/factories/index.ts"
+import apiErrorBodySchema from "#src/schemas/apiErrorBody.ts"
+import apiResponseSchema from "#src/schemas/apiResponse.ts"
 import tools from "#src/tools/index.ts"
-import type { ApiErrorBody } from "#src/types/ApiError.ts"
 import type { ApiRequest } from "#src/types/ApiRequest.ts"
 import type { ApiRequestHeaders } from "#src/types/ApiRequestHeaders.ts"
-import type { ApiResponse } from "#src/types/ApiResponse.ts"
 import type { Content } from "#src/types/Content.ts"
 import type { Message } from "#src/types/Message.ts"
 import type { ToolUseContent } from "#src/types/ToolUseContent.ts"
 import type { Usage } from "#src/types/Usage.ts"
+
+const asJson = (text: string): unknown => {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
+}
 
 const query = async (
   messages: Message[],
@@ -34,12 +42,24 @@ const query = async (
   })
 
   if (!response.ok) {
-    const body = (await response.json()) as ApiErrorBody
-    throw new Error(`${body.error.type}: ${body.error.message}`)
+    const text = await response.text()
+    const parsed = apiErrorBodySchema.safeParse(asJson(text))
+    throw new Error(
+      parsed.success
+        ? `${parsed.data.error.type}: ${parsed.data.error.message}`
+        : `HTTP ${response.status}: ${text}`,
+    )
   }
 
-  const apiResponse = (await response.json()) as ApiResponse
-  const { role, content, usage, stop_reason } = apiResponse
+  const parsed = apiResponseSchema.safeParse(await response.json())
+  if (!parsed.success) {
+    throw new Error(
+      parsed.error.issues
+        .map(issue => `${issue.path.join(".")}: ${issue.message}`)
+        .join("\n"),
+    )
+  }
+  const { role, content, usage, stop_reason } = parsed.data
   const assistantMessage = { role, content }
   const newMessages = [...messages, assistantMessage]
 
