@@ -1,7 +1,9 @@
-import type { AssistantMessage } from "#src/types/AssistantMessage.ts"
-import type { Content } from "#src/types/Content.ts"
+import type {
+  AssistantContent,
+  AssistantMessage,
+} from "#src/types/AssistantMessage.ts"
 
-const assistantMessage = (content: Content[]): AssistantMessage => ({
+const assistantMessage = (content: AssistantContent[]): AssistantMessage => ({
   role: "assistant",
   content,
 })

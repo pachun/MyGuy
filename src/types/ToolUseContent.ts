@@ -1,5 +1,5 @@
+import { z } from "zod"
 import type tools from "#src/tools/index.ts"
-import type { Json } from "#src/types/Json.ts"
 import type { InputOf, Property, Tool } from "#src/types/Tool.ts"
 import type { ToolUseId } from "#src/types/ToolUseId.ts"
 
@@ -15,9 +15,13 @@ type ToolUse<Defined> = Defined extends {
 
 export type ToolUseRequest = ToolUse<(typeof tools)[number]>
 
-export type ToolUseContent = {
-  id: ToolUseId
-  type: "tool_use"
-  name: string
-  input: { [key: string]: Json }
-}
+const toolUseContent = z.object({
+  id: z.custom<ToolUseId>(value => typeof value === "string"),
+  type: z.literal("tool_use"),
+  name: z.string(),
+  input: z.record(z.string(), z.json()),
+})
+
+export type ToolUseContent = z.infer<typeof toolUseContent>
+
+export default toolUseContent
