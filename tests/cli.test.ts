@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { beforeEach, describe, expect, it, onTestFinished } from "vitest"
 import cli from "#src/cli/index.ts"
 import {
@@ -159,7 +162,7 @@ describe("The command line interface", () => {
     )
   })
 
-  it("shows the tools the model calls before its response", async () => {
+  it("runs the tools the model calls without asking", async () => {
     const toolUse = toolUseContent({
       name: "shell",
       input: { command: "echo hi" },
@@ -189,6 +192,113 @@ describe("The command line interface", () => {
 
     expect(shown()).toEqual(
       '\n  shell {"command":"echo hi"}\n\n  It printed hi.\n\n  ↑ 0  ↓ 0\n\n',
+    )
+  })
+
+  it("asks before running a shell command once tab switches to manual mode", async () => {
+    const toolUse = toolUseContent({
+      name: "shell",
+      input: { command: "echo hi" },
+    })
+    const afterToolUse = mockQuery({
+      messages: [userMessage([textContent("Run echo hi for me.")])],
+      apiResponse: apiResponse({
+        ...assistantMessage([toolUse]),
+        stop_reason: "tool_use",
+      }),
+    })
+    mockQuery({
+      messages: [
+        ...afterToolUse,
+        userMessage([
+          toolResultContent(toolUse, {
+            content: '{"stdout":"hi\\n","stderr":""}',
+          }),
+        ]),
+      ],
+      apiResponse: apiResponse({
+        ...assistantMessage([textContent("It printed hi.")]),
+      }),
+    })
+
+    await type("\t")
+    await type("Run echo hi for me.")
+
+    expect(shown()).toEqual("")
+
+    await type("y")
+
+    expect(shown()).toEqual(
+      '\n  shell {"command":"echo hi"}\n\n  It printed hi.\n\n  ↑ 0  ↓ 0\n\n',
+    )
+  })
+
+  it("tells the model when a shell command is declined", async () => {
+    const toolUse = toolUseContent({
+      name: "shell",
+      input: { command: "echo hi" },
+    })
+    const afterToolUse = mockQuery({
+      messages: [userMessage([textContent("Run echo hi for me.")])],
+      apiResponse: apiResponse({
+        ...assistantMessage([toolUse]),
+        stop_reason: "tool_use",
+      }),
+    })
+    mockQuery({
+      messages: [
+        ...afterToolUse,
+        userMessage([
+          toolResultContent(toolUse, {
+            content: "Tool use permission denied.",
+            is_error: true,
+          }),
+        ]),
+      ],
+      apiResponse: apiResponse({
+        ...assistantMessage([textContent("Understood, I won't run it.")]),
+      }),
+    })
+
+    await type("\t")
+    await type("Run echo hi for me.")
+    await type("n")
+
+    expect(shown()).toEqual(
+      '\n  shell {"command":"echo hi"}\n\n  Understood, I won\'t run it.\n\n  ↑ 0  ↓ 0\n\n',
+    )
+  })
+
+  it("reads a file without asking in manual mode", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "harness-"))
+    const path = join(directory, "todos.md")
+    await writeFile(path, "groceries")
+    const toolUse = toolUseContent({
+      name: "read_file",
+      input: { path, encoding: "utf8" },
+    })
+    const afterToolUse = mockQuery({
+      messages: [userMessage([textContent(`What is in ${path}?`)])],
+      apiResponse: apiResponse({
+        ...assistantMessage([toolUse]),
+        stop_reason: "tool_use",
+      }),
+    })
+    mockQuery({
+      messages: [
+        ...afterToolUse,
+        userMessage([toolResultContent(toolUse, { content: "groceries" })]),
+      ],
+      apiResponse: apiResponse({
+        ...assistantMessage([textContent("It says groceries.")]),
+      }),
+    })
+
+    await type("\t")
+    await type(`What is in ${path}?`)
+
+    expect(shown()).toEqual(
+      `\n  read_file {"path":"${path}","encoding":"utf8"}\n\n  It says groceries.\n\n  ↑ 0  ↓ 0\n\n`,
     )
   })
 

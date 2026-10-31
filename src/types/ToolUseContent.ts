@@ -15,13 +15,18 @@ type ToolUse<Defined> = Defined extends {
 
 export type ToolUseRequest = ToolUse<(typeof tools)[number]>
 
-const toolUseContent = z.object({
+export type ToolUseContent = {
+  id: ToolUseId
+  type: "tool_use"
+} & ToolUseRequest
+
+const anyToolUseContent = z.object({
   id: z.custom<ToolUseId>(value => typeof value === "string"),
   type: z.literal("tool_use"),
   name: z.string(),
   input: z.record(z.string(), z.json()),
 })
 
-export type ToolUseContent = z.infer<typeof toolUseContent>
+export type AnyToolUseContent = z.infer<typeof anyToolUseContent>
 
-export default toolUseContent
+export default anyToolUseContent

@@ -7,7 +7,7 @@ import apiResponseSchema from "#src/types/ApiResponse.ts"
 import type { Content } from "#src/types/Content.ts"
 import type { Message } from "#src/types/Message.ts"
 import type { StopReason } from "#src/types/StopReason.ts"
-import type { ToolUseContent } from "#src/types/ToolUseContent.ts"
+import type { AnyToolUseContent } from "#src/types/ToolUseContent.ts"
 import type { Usage } from "#src/types/Usage.ts"
 
 const asJson = (text: string): unknown => {
@@ -18,8 +18,13 @@ const asJson = (text: string): unknown => {
   }
 }
 
+type ApprovalFunction = (
+  anyToolUseContent: AnyToolUseContent,
+) => Promise<boolean>
+
 const query = async (
   messages: Message[],
+  approvalFunction: ApprovalFunction,
 ): Promise<{ messages: Message[]; usage: Usage; stop_reason: StopReason }> => {
   const apiRequestHeaders: ApiRequestHeaders = {
     "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
@@ -67,9 +72,14 @@ const query = async (
 
   if (stop_reason === "tool_use") {
     const toolResults = userMessage(
-      await Promise.all(content.filter(isToolUse).map(toolResult)),
+      await Promise.all(
+        content.filter(isToolUse).map(toolResult(approvalFunction)),
+      ),
     )
-    const innerQuery = await query([...newMessages, toolResults])
+    const innerQuery = await query(
+      [...newMessages, toolResults],
+      approvalFunction,
+    )
     return {
       messages: innerQuery.messages,
       usage: addUsage(usage, innerQuery.usage),
@@ -82,27 +92,40 @@ const query = async (
 
 const isToolUse = (content: Content) => content.type === "tool_use"
 
-const toolResult = async (content: ToolUseContent) => {
-  const tool = tools.find(tool => tool.definition.name === content.name)
-  if (tool) {
-    try {
-      return toolResultContent(content, {
-        content: await tool.run(content.input),
-      })
-    } catch (exception) {
-      return toolResultContent(content, {
-        content:
-          exception instanceof Error ? exception.message : String(exception),
+const toolResult =
+  (approvalFunction: ApprovalFunction) =>
+  async (anyToolUseContent: AnyToolUseContent) => {
+    const tool = tools.find(
+      tool => tool.definition.name === anyToolUseContent.name,
+    )
+    if (tool) {
+      if (await approvalFunction(anyToolUseContent)) {
+        try {
+          return toolResultContent(anyToolUseContent, {
+            content: await tool.run(anyToolUseContent.input),
+          })
+        } catch (exception) {
+          return toolResultContent(anyToolUseContent, {
+            content:
+              exception instanceof Error
+                ? exception.message
+                : String(exception),
+            is_error: true,
+          })
+        }
+      } else {
+        return toolResultContent(anyToolUseContent, {
+          content: "Tool use permission denied.",
+          is_error: true,
+        })
+      }
+    } else {
+      return toolResultContent(anyToolUseContent, {
+        content: `${anyToolUseContent.name} is not a tool.`,
         is_error: true,
       })
     }
-  } else {
-    return toolResultContent(content, {
-      content: `${content.name} is not a tool.`,
-      is_error: true,
-    })
   }
-}
 
 const addUsage = (u1: Usage, u2: Usage): Usage => {
   return {

@@ -1,8 +1,8 @@
 import type { ToolResultContent } from "#src/types/ToolResultContent.ts"
-import type { ToolUseContent } from "#src/types/ToolUseContent.ts"
+import type { AnyToolUseContent } from "#src/types/ToolUseContent.ts"
 
 const toolResultContent = (
-  toolUse: ToolUseContent,
+  toolUse: AnyToolUseContent,
   { content, is_error }: { content: string; is_error?: boolean },
 ): ToolResultContent => ({
   type: "tool_result",

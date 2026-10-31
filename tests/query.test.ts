@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest"
 import query from "#src/query.ts"
 import type { ApiErrorBody } from "#src/types/ApiError.ts"
 import type { ApiResponse } from "#src/types/ApiResponse.ts"
-import type { ToolUseContent } from "#src/types/ToolUseContent.ts"
+import type { AnyToolUseContent } from "#src/types/ToolUseContent.ts"
 import {
   apiResponse,
   assistantMessage,
@@ -29,6 +29,8 @@ const createFileForTest = async (
   return filePath
 }
 
+const approveAllToolUse = async () => true
+
 describe("query()", () => {
   it("returns messages", async () => {
     const helloMessage = userMessage([textContent("hello")])
@@ -41,7 +43,7 @@ describe("query()", () => {
       apiResponse: apiResponse({ ...helloResponseMessage }),
     })
 
-    const { messages } = await query([helloMessage])
+    const { messages } = await query([helloMessage], approveAllToolUse)
 
     expect(messages).toEqual([helloMessage, helloResponseMessage])
   })
@@ -65,7 +67,7 @@ describe("query()", () => {
       }),
     })
 
-    const { usage } = await query([helloMessage])
+    const { usage } = await query([helloMessage], approveAllToolUse)
 
     expect(usage).toEqual({
       input_tokens: 1,
@@ -108,7 +110,7 @@ describe("query()", () => {
         apiResponse: apiResponse({ ...answerMessage, stop_reason: "end_turn" }),
       })
 
-      const { messages } = await query([promptMessage])
+      const { messages } = await query([promptMessage], approveAllToolUse)
 
       expect(messages).toEqual([
         promptMessage,
@@ -165,7 +167,7 @@ describe("query()", () => {
         }),
       })
 
-      const { usage } = await query([promptMessage])
+      const { usage } = await query([promptMessage], approveAllToolUse)
 
       expect(usage).toEqual({
         input_tokens: 11,
@@ -182,7 +184,7 @@ describe("query()", () => {
         const promptMessage = userMessage([
           textContent("Make my harness run a 5k."),
         ])
-        const unavailableToolUse: ToolUseContent = {
+        const unavailableToolUse: AnyToolUseContent = {
           type: "tool_use",
           id: toolUseId("123"),
           name: "run_three_miles",
@@ -213,7 +215,7 @@ describe("query()", () => {
           }),
         })
 
-        const { messages } = await query([promptMessage])
+        const { messages } = await query([promptMessage], approveAllToolUse)
 
         expect(messages).toEqual([
           promptMessage,
@@ -262,7 +264,7 @@ describe("query()", () => {
           }),
         })
 
-        const { messages } = await query([promptMessage])
+        const { messages } = await query([promptMessage], approveAllToolUse)
 
         expect(messages).toEqual([
           promptMessage,
@@ -280,7 +282,7 @@ describe("query()", () => {
       const replyWithoutContent = { type: "message" } as unknown as ApiResponse
       mockQuery({ messages, apiResponse: replyWithoutContent })
 
-      await expect(query(messages)).rejects.toThrow(
+      await expect(query(messages, approveAllToolUse)).rejects.toThrow(
         "content: Invalid input: expected array, received undefined",
       )
     })
@@ -292,7 +294,7 @@ describe("query()", () => {
       const gatewayPage = "<html>Bad gateway</html>" as unknown as ApiErrorBody
       mockQueryError({ messages, apiError: { status: 502, body: gatewayPage } })
 
-      await expect(query(messages)).rejects.toThrow(
+      await expect(query(messages, approveAllToolUse)).rejects.toThrow(
         "HTTP 502: <html>Bad gateway</html>",
       )
     })
@@ -315,7 +317,7 @@ describe("query()", () => {
         },
       })
 
-      await expect(query(messages)).rejects.toThrow(
+      await expect(query(messages, approveAllToolUse)).rejects.toThrow(
         "authentication_error: x-api-key header is required",
       )
     })
@@ -336,7 +338,10 @@ describe("query()", () => {
         }),
       })
 
-      const { messages, stop_reason } = await query([promptMessage])
+      const { messages, stop_reason } = await query(
+        [promptMessage],
+        approveAllToolUse,
+      )
 
       expect(messages).toEqual([promptMessage, responseMessage])
       expect(stop_reason).toEqual("max_tokens")
@@ -359,10 +364,57 @@ describe("query()", () => {
         }),
       })
 
-      const { messages, stop_reason } = await query([promptMessage])
+      const { messages, stop_reason } = await query(
+        [promptMessage],
+        approveAllToolUse,
+      )
 
       expect(messages).toEqual([promptMessage, responseMessage])
       expect(stop_reason).toEqual("refusal")
+    })
+  })
+
+  describe("when there's an approval function", () => {
+    it("does not use a tool when approval is false", async () => {
+      const promptMessage = userMessage([textContent("list files in the cwd")])
+      const lsToolUse = toolUseContent({
+        name: "shell",
+        input: { command: "ls" },
+      })
+      const toolUseMessage = assistantMessage([lsToolUse])
+      const previousMessages = mockQuery({
+        messages: [promptMessage],
+        apiResponse: apiResponse({
+          ...toolUseMessage,
+          stop_reason: "tool_use",
+        }),
+      })
+      const toolUseDeniedMessage = userMessage([
+        toolResultContent(lsToolUse, {
+          content: "Tool use permission denied.",
+          is_error: true,
+        }),
+      ])
+      const sadModelResponse = assistantMessage([
+        textContent("You won't lemme do stuff :("),
+      ])
+      mockQuery({
+        messages: [...previousMessages, toolUseDeniedMessage],
+        apiResponse: apiResponse(sadModelResponse),
+      })
+
+      const approval = async () => {
+        return false
+      }
+
+      const { messages } = await query([promptMessage], approval)
+
+      expect(messages).toEqual([
+        promptMessage,
+        toolUseMessage,
+        toolUseDeniedMessage,
+        sadModelResponse,
+      ])
     })
   })
 })

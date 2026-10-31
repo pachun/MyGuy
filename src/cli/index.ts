@@ -8,6 +8,7 @@ import query from "#src/query.ts"
 import type { Content } from "#src/types/Content.ts"
 import type { Message } from "#src/types/Message.ts"
 import type { StopReason } from "#src/types/StopReason.ts"
+import type { AnyToolUseContent } from "#src/types/ToolUseContent.ts"
 import type { Usage } from "#src/types/Usage.ts"
 
 const indent = "  "
@@ -43,8 +44,11 @@ const render = (content: Content): string =>
     : content.type === "text"
       ? marked.parse(content.text, { async: false })
       : content.type === "tool_use"
-        ? `${styleText("dim", `${content.name} ${JSON.stringify(content.input)}`)}\n\n`
+        ? `${styleText("dim", toolCall(content))}\n\n`
         : ""
+
+const toolCall = (toolUse: AnyToolUseContent): string =>
+  `${toolUse.name} ${JSON.stringify(toolUse.input)}`
 
 const leadingBullet = /^\s*(?:(?:[*+-]|\d+\.)\s+)?/
 
@@ -138,7 +142,9 @@ const spinWhile = async <T>(pending: Promise<T>): Promise<T> => {
   if (process.stdout.isTTY) {
     process.stdout.write(`\n${hideCursor}`)
     const ticking = setInterval(() => {
-      process.stdout.write(`${clearLine}${indent}${currentSpinnerFrame()}`)
+      if (!process.stdin.isRaw) {
+        process.stdout.write(`${clearLine}${indent}${currentSpinnerFrame()}`)
+      }
     }, spinnerFrameMilliseconds)
     try {
       return await pending
@@ -154,10 +160,36 @@ const spinWhile = async <T>(pending: Promise<T>): Promise<T> => {
 const shownError = (error: unknown): string =>
   `\n${indent}${styleText("red", error instanceof Error ? error.message : String(error))}\n\n`
 
+type Mode = "auto" | "manual"
+
+const otherMode = (mode: Mode): Mode => (mode === "auto" ? "manual" : "auto")
+
+const modeHint = (mode: Mode): string =>
+  `${indent}${styleText("dim", `${mode} mode (tab to switch)`)}`
+
+const askToRun = async (toolUse: AnyToolUseContent): Promise<boolean> => {
+  if (toolUse.name === "read_file") {
+    return true
+  } else {
+    const question = `${indent}${styleText("dim", toolCall(toolUse))} run? [y/N]`
+    process.stdout.write(showCursor)
+    const { line: answer } = await readLine(question)
+    if (process.stdout.isTTY) {
+      process.stdout.write(`${cursorUpOneRow}${clearLine}${hideCursor}`)
+    }
+    return answer?.trim().toLowerCase() === "y"
+  }
+}
+
+const runWithoutAsking = async (): Promise<boolean> => true
+
+const approval = (mode: Mode) => (mode === "auto" ? runWithoutAsking : askToRun)
+
 const respondTo = async (
   prompt: string,
   messages: Message[],
   transcript: Turn[],
+  mode: Mode,
 ): Promise<{ messages: Message[]; transcript: Turn[] }> => {
   try {
     const {
@@ -165,7 +197,7 @@ const respondTo = async (
       usage,
       stop_reason,
     } = await spinWhile(
-      query([...messages, userMessage([textContent(prompt)])]),
+      query([...messages, userMessage([textContent(prompt)])], approval(mode)),
     )
     const content = nextMessages
       .slice(messages.length + 1)
@@ -182,18 +214,23 @@ const respondTo = async (
 const cli = async (
   messages: Message[] = [],
   transcript: Turn[] = [],
+  mode: Mode = "auto",
 ): Promise<void> => {
   const redraw = redrawTranscript(transcript)
   process.stdout.on("resize", redraw)
-  const line = await readLine(promptLabel)
+  const { line, toggled } = await readLine(promptLabel, [
+    modeHint(mode),
+    modeHint(otherMode(mode)),
+  ])
   process.stdout.off("resize", redraw)
+  const nextMode = toggled ? otherMode(mode) : mode
   if (line === null) {
     return
   } else if (line.trim() === "") {
-    await cli(messages, transcript)
+    await cli(messages, transcript, nextMode)
   } else {
-    const next = await respondTo(line, messages, transcript)
-    await cli(next.messages, next.transcript)
+    const next = await respondTo(line, messages, transcript, nextMode)
+    await cli(next.messages, next.transcript, nextMode)
   }
 }
 
