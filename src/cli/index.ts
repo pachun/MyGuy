@@ -101,13 +101,15 @@ type Turn = {
   stop_reason: StopReason
 }
 
-const cutOff = (stop_reason: StopReason): string =>
+const stopNote = (stop_reason: StopReason): string =>
   stop_reason === "max_tokens"
     ? `${indent}${styleText("dim", "Cut off at the token limit. Ask to keep going.")}\n\n`
-    : ""
+    : stop_reason === "refusal"
+      ? `${indent}${styleText("dim", "The model declined to answer on safety grounds.")}\n\n`
+      : ""
 
 const shownResponse = ({ content, usage, stop_reason }: Turn): string =>
-  `\n${indented(wrapped(content.map(render).join("")))}${cutOff(stop_reason)}${tokensUsed(usage)}`
+  `\n${indented(wrapped(content.map(render).join("")))}${stopNote(stop_reason)}${tokensUsed(usage)}`
 
 const shownTurn = (turn: Turn): string =>
   `${typedLine(promptLabel, turn.prompt)}\n${shownResponse(turn)}`

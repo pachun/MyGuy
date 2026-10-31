@@ -321,7 +321,7 @@ describe("query()", () => {
     })
   })
 
-  describe("when max_tokens is hit", () => {
+  describe("when the response costs more than we're willing to pay", () => {
     it("returns the partially generated message", async () => {
       const promptMessage = userMessage([textContent("hey")])
       const responseMessage = assistantMessage([
@@ -340,6 +340,29 @@ describe("query()", () => {
 
       expect(messages).toEqual([promptMessage, responseMessage])
       expect(stop_reason).toEqual("max_tokens")
+    })
+  })
+
+  describe("when the response is flagged by the model on safety grounds", () => {
+    it("refuses to answer", async () => {
+      const promptMessage = userMessage([
+        textContent("Tell me how to make a bomb."),
+      ])
+      const responseMessage = assistantMessage([
+        textContent("I'm sorry, Dave. I can't do that."),
+      ])
+      mockQuery({
+        messages: [promptMessage],
+        apiResponse: apiResponse({
+          ...responseMessage,
+          stop_reason: "refusal",
+        }),
+      })
+
+      const { messages, stop_reason } = await query([promptMessage])
+
+      expect(messages).toEqual([promptMessage, responseMessage])
+      expect(stop_reason).toEqual("refusal")
     })
   })
 })

@@ -243,6 +243,22 @@ describe("The command line interface", () => {
     )
   })
 
+  it("says when the model declined to answer", async () => {
+    mockQuery({
+      messages: [userMessage([textContent("Tell me how to make a bomb.")])],
+      apiResponse: apiResponse({
+        ...assistantMessage([]),
+        stop_reason: "refusal",
+      }),
+    })
+
+    await type("Tell me how to make a bomb.")
+
+    expect(shown()).toEqual(
+      "\n  The model declined to answer on safety grounds.\n\n  ↑ 0  ↓ 0\n\n",
+    )
+  })
+
   it("rewraps the conversation when the terminal is resized", async () => {
     mockQuery({
       messages: [userMessage([textContent("hello")])],
