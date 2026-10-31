@@ -227,6 +227,22 @@ describe("The command line interface", () => {
     )
   })
 
+  it("says when the model's reply was cut off", async () => {
+    mockQuery({
+      messages: [userMessage([textContent("Write five paragraphs.")])],
+      apiResponse: apiResponse({
+        ...assistantMessage([textContent("Rivers begin as")]),
+        stop_reason: "max_tokens",
+      }),
+    })
+
+    await type("Write five paragraphs.")
+
+    expect(shown()).toEqual(
+      "\n  Rivers begin as\n\n  Cut off at the token limit. Ask to keep going.\n\n  ↑ 0  ↓ 0\n\n",
+    )
+  })
+
   it("rewraps the conversation when the terminal is resized", async () => {
     mockQuery({
       messages: [userMessage([textContent("hello")])],

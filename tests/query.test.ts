@@ -274,8 +274,8 @@ describe("query()", () => {
     })
   })
 
-  describe("when the api replies with something that is not a message", () => {
-    it("rejects naming what was wrong with the reply", async () => {
+  describe("when the api responds with an unrecognized json shape", () => {
+    it("throws", async () => {
       const messages = [userMessage([textContent("hello")])]
       const replyWithoutContent = { type: "message" } as unknown as ApiResponse
       mockQuery({ messages, apiResponse: replyWithoutContent })
@@ -286,8 +286,8 @@ describe("query()", () => {
     })
   })
 
-  describe("when something in front of the api fails", () => {
-    it("rejects with the status and whatever came back", async () => {
+  describe("when cloudflare breaks", () => {
+    it("throws", async () => {
       const messages = [userMessage([textContent("hello")])]
       const gatewayPage = "<html>Bad gateway</html>" as unknown as ApiErrorBody
       mockQueryError({ messages, apiError: { status: 502, body: gatewayPage } })
@@ -318,6 +318,28 @@ describe("query()", () => {
       await expect(query(messages)).rejects.toThrow(
         "authentication_error: x-api-key header is required",
       )
+    })
+  })
+
+  describe("when max_tokens is hit", () => {
+    it("returns the partially generated message", async () => {
+      const promptMessage = userMessage([textContent("hey")])
+      const responseMessage = assistantMessage([
+        thinkingContent("hm..."),
+        textContent("Good! How ar"),
+      ])
+      mockQuery({
+        messages: [promptMessage],
+        apiResponse: apiResponse({
+          ...responseMessage,
+          stop_reason: "max_tokens",
+        }),
+      })
+
+      const { messages, stop_reason } = await query([promptMessage])
+
+      expect(messages).toEqual([promptMessage, responseMessage])
+      expect(stop_reason).toEqual("max_tokens")
     })
   })
 })

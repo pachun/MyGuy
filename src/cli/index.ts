@@ -7,6 +7,7 @@ import { textContent, userMessage } from "#src/factories/index.ts"
 import query from "#src/query.ts"
 import type { Content } from "#src/types/Content.ts"
 import type { Message } from "#src/types/Message.ts"
+import type { StopReason } from "#src/types/StopReason.ts"
 import type { Usage } from "#src/types/Usage.ts"
 
 const indent = "  "
@@ -93,10 +94,20 @@ const tokensUsed = (usage: Usage): string =>
     `↑ ${totalInput(usage)}  ↓ ${usage.output_tokens}${cached(usage)}`,
   )}\n\n`
 
-type Turn = { prompt: string; content: Content[]; usage: Usage }
+type Turn = {
+  prompt: string
+  content: Content[]
+  usage: Usage
+  stop_reason: StopReason
+}
 
-const shownResponse = ({ content, usage }: Turn): string =>
-  `\n${indented(wrapped(content.map(render).join("")))}${tokensUsed(usage)}`
+const cutOff = (stop_reason: StopReason): string =>
+  stop_reason === "max_tokens"
+    ? `${indent}${styleText("dim", "Cut off at the token limit. Ask to keep going.")}\n\n`
+    : ""
+
+const shownResponse = ({ content, usage, stop_reason }: Turn): string =>
+  `\n${indented(wrapped(content.map(render).join("")))}${cutOff(stop_reason)}${tokensUsed(usage)}`
 
 const shownTurn = (turn: Turn): string =>
   `${typedLine(promptLabel, turn.prompt)}\n${shownResponse(turn)}`
@@ -147,13 +158,17 @@ const respondTo = async (
   transcript: Turn[],
 ): Promise<{ messages: Message[]; transcript: Turn[] }> => {
   try {
-    const { messages: nextMessages, usage } = await spinWhile(
+    const {
+      messages: nextMessages,
+      usage,
+      stop_reason,
+    } = await spinWhile(
       query([...messages, userMessage([textContent(prompt)])]),
     )
     const content = nextMessages
       .slice(messages.length + 1)
       .flatMap(message => message.content)
-    const turn = { prompt, content, usage }
+    const turn = { prompt, content, usage, stop_reason }
     process.stdout.write(shownResponse(turn))
     return { messages: nextMessages, transcript: [...transcript, turn] }
   } catch (error) {

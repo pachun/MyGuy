@@ -6,6 +6,7 @@ import type { ApiRequestHeaders } from "#src/types/ApiRequestHeaders.ts"
 import apiResponseSchema from "#src/types/ApiResponse.ts"
 import type { Content } from "#src/types/Content.ts"
 import type { Message } from "#src/types/Message.ts"
+import type { StopReason } from "#src/types/StopReason.ts"
 import type { ToolUseContent } from "#src/types/ToolUseContent.ts"
 import type { Usage } from "#src/types/Usage.ts"
 
@@ -19,7 +20,7 @@ const asJson = (text: string): unknown => {
 
 const query = async (
   messages: Message[],
-): Promise<{ messages: Message[]; usage: Usage }> => {
+): Promise<{ messages: Message[]; usage: Usage; stop_reason: StopReason }> => {
   const apiRequestHeaders: ApiRequestHeaders = {
     "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
     "anthropic-version": "2023-06-01",
@@ -71,9 +72,10 @@ const query = async (
     return {
       messages: innerQuery.messages,
       usage: addUsage(usage, innerQuery.usage),
+      stop_reason: innerQuery.stop_reason,
     }
   } else {
-    return { messages: newMessages, usage }
+    return { messages: newMessages, usage, stop_reason }
   }
 }
 

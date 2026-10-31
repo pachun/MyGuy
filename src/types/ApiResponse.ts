@@ -13,7 +13,7 @@ const apiResponse = z.object({
       toolUseContent,
     ]),
   ),
-  stop_reason: z.enum(["end_turn", "tool_use"]),
+  stop_reason: z.enum(["end_turn", "tool_use", "max_tokens"]),
   usage,
 })
 
