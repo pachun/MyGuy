@@ -30,10 +30,11 @@ const query = async (
   const apiRequestBody: ApiRequest = {
     model: "claude-opus-5-5",
     max_tokens: 16000,
-    tools: tools.map(tool => tool.definition),
-    messages,
     thinking: { type: "adaptive", display: "summarized" },
     cache_control: { type: "ephemeral" },
+    tools: tools.map(tool => tool.definition),
+    system: "",
+    messages,
   }
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {

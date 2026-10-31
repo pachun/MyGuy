@@ -14,8 +14,9 @@ type maxTokens = maxTokensThatDoNotTimeoutNonStreamingHttpRequests
 
 export type ApiRequest = {
   model: "claude-opus-5-5"
-  tools: Tool[]
   max_tokens: maxTokens
+  tools: Tool[]
+  system: string
   messages: Message[]
 } & ShowThinkingSummaries &
   CacheInputTokens

@@ -18,10 +18,11 @@ const mockQueryError = ({
   const expectedApiRequest: ApiRequest = {
     model: "claude-opus-5-5",
     max_tokens: 16000,
-    messages,
-    tools: tools.map(tool => tool.definition),
     thinking: { type: "adaptive", display: "summarized" },
     cache_control: { type: "ephemeral" },
+    tools: tools.map(tool => tool.definition),
+    system: "",
+    messages,
   }
 
   nock("https://api.anthropic.com")
