@@ -122,7 +122,7 @@ describe("The command line interface", () => {
     await type("Tell me a long story.")
 
     expect(shown()).toEqual(
-      "\n  Once upon a time...\n\n  ↑ 1425  ↓ 150  +1421 cached\n\n",
+      "\n  Once upon a time...\n\n  ↑ 1.4k  ↓ 150  +1.4k cached\n\n",
     )
 
     const afterRead = mockQuery({
@@ -140,7 +140,7 @@ describe("The command line interface", () => {
 
     await type("Shorter.")
 
-    expect(shown()).toEqual("\n  The end.\n\n  ↑ 1428  ↓ 80  1425 cached\n\n")
+    expect(shown()).toEqual("\n  The end.\n\n  ↑ 1.4k  ↓ 80  1.4k cached\n\n")
 
     mockQuery({
       messages: [...afterRead, userMessage([textContent("Again.")])],
@@ -158,7 +158,28 @@ describe("The command line interface", () => {
     await type("Again.")
 
     expect(shown()).toEqual(
-      "\n  The end, again.\n\n  ↑ 1664  ↓ 60  1508 cached +154\n\n",
+      "\n  The end, again.\n\n  ↑ 1.7k  ↓ 60  1.5k cached +154\n\n",
+    )
+  })
+
+  it("rounds large token counts to thousands and millions", async () => {
+    mockQuery({
+      messages: [userMessage([textContent("What is on my ballot?")])],
+      apiResponse: apiResponse({
+        ...assistantMessage([textContent("Two amendments.")]),
+        usage: {
+          input_tokens: 10,
+          output_tokens: 1799,
+          cache_read_input_tokens: 1855104,
+          cache_creation_input_tokens: 6344,
+        },
+      }),
+    })
+
+    await type("What is on my ballot?")
+
+    expect(shown()).toEqual(
+      "\n  Two amendments.\n\n  ↑ 1.9M  ↓ 1.8k  1.9M cached +6.3k\n\n",
     )
   })
 

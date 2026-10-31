@@ -75,16 +75,26 @@ const indented = (rendered: string): string =>
 
 const promptLabel = styleText(["bold", "cyan"], ">")
 
+const thousand = 1000
+const million = 1000000
+
+const rounded = (count: number): string =>
+  count >= million
+    ? `${(count / million).toFixed(1)}M`
+    : count >= thousand
+      ? `${(count / thousand).toFixed(1)}k`
+      : `${count}`
+
 const cached = ({
   cache_read_input_tokens: read,
   cache_creation_input_tokens: written,
 }: Usage): string =>
   read > 0 && written > 0
-    ? `  ${read} cached +${written}`
+    ? `  ${rounded(read)} cached +${rounded(written)}`
     : read > 0
-      ? `  ${read} cached`
+      ? `  ${rounded(read)} cached`
       : written > 0
-        ? `  +${written} cached`
+        ? `  +${rounded(written)} cached`
         : ""
 
 const totalInput = (usage: Usage): number =>
@@ -95,7 +105,7 @@ const totalInput = (usage: Usage): number =>
 const tokensUsed = (usage: Usage): string =>
   `${indent}${styleText(
     "dim",
-    `↑ ${totalInput(usage)}  ↓ ${usage.output_tokens}${cached(usage)}`,
+    `↑ ${rounded(totalInput(usage))}  ↓ ${rounded(usage.output_tokens)}${cached(usage)}`,
   )}\n\n`
 
 type Turn = {
